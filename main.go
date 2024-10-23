@@ -15,10 +15,11 @@ import (
 )
 
 var (
-	server = md5simd.NewServer()
-	numCPU = runtime.NumCPU() * 8
-	input  = make(chan string, numCPU*10)
-	output = make(chan string, numCPU*10)
+	server        = md5simd.NewServer()
+	numCPU        = runtime.NumCPU() * 4
+	input         = make(chan string, 8048)
+	output        = make(chan string, 8048)
+	MaxStreamSize = (int64)(52428800)
 )
 
 // Fonction pour afficher un chemin
@@ -116,29 +117,23 @@ func launchWorker(wg *sync.WaitGroup) {
 	wg.Done()
 }
 func performS(path string) (string, error) {
-	size, serr := getSize(path)
-	if serr != nil || size == 0 {
-		return "", serr
-	}
-	S, E := getHash(path)
-	if E != nil {
-		return "", E
+	size, err := getSize(path)
+	if err != nil || size == 0 {
+		return "", err
 	}
 
-	return fmt.Sprintf("%s:%d:%s\n", S, size, path), E
+	var S string
+
+	if size < MaxStreamSize && size > 0 {
+		S, err = getHash(path)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		S = "-"
+	}
+	return fmt.Sprintf("%s:%d:%s\n", S, size, path), err
 }
-
-// func perform(path string) error {
-// 	size, serr := getSize(path)
-// 	if serr != nil || size == 0 {
-// 		return nil
-// 	}
-// 	S, E := getHash(path)
-// 	if E == nil {
-// 		fmt.Printf("%s:%d:%s\n", S, size, path)
-// 	}
-// 	return E
-// }
 
 func getHash(thePath string) (string, error) {
 
